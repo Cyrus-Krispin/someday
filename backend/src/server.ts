@@ -15,7 +15,9 @@ const server = http.createServer(app);
 // Initialize Socket.io
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL,
+    origin: process.env.NODE_ENV === 'development'
+      ? /^http:\/\/localhost(:\d+)?$/
+      : process.env.CLIENT_URL,
     methods: ['GET', 'POST'],
   },
 });

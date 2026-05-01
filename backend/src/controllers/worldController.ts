@@ -6,11 +6,37 @@ import type { Request, Response } from 'express';
  * Create a new world with generated map
  */
 export const createWorld = async (req: Request, res: Response) => {
-  try {
-    // Generate seed from timestamp + random for uniqueness
-    const seed = `world_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+  const playerId = req.playerId!;
 
+  try {
+    // Check if player is already in a world
+    const playerResult = await pool.query(
+      'SELECT world_id FROM players WHERE id = $1',
+      [playerId]
+    );
+    if (playerResult.rows[0]?.world_id) {
+      return res.status(400).json({ error: 'Player already in a world' });
+    }
+
+    const seed = `world_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     const world = await createWorldService(seed);
+
+    // Assign creator to the world at spawn position
+    const spawnPositions = await getSpawnPositionsForWorld(world.id, 1);
+    const spawnPos = spawnPositions[0];
+
+    await pool.query(
+      `UPDATE players SET world_id = $1, x = $2, y = $3, movement_remaining = 6, actions_remaining = 2 WHERE id = $4`,
+      [world.id, spawnPos.x, spawnPos.y, playerId]
+    );
+
+    const resourceTypes = ['crops', 'fish', 'lumber', 'ore', 'gems'];
+    for (const type of resourceTypes) {
+      await pool.query(
+        `INSERT INTO resources (player_id, type, quantity) VALUES ($1, $2, 0) ON CONFLICT (player_id, type) DO NOTHING`,
+        [playerId, type]
+      );
+    }
 
     res.status(201).json({
       message: 'World created successfully',

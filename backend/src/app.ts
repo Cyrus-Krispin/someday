@@ -11,7 +11,10 @@ import turnRoutes from './routes/turn.js';
 const app: Express = express();
 
 // Middleware
-app.use(cors({ origin: process.env.CLIENT_URL }));
+const corsOrigin = process.env.NODE_ENV === 'development'
+  ? /^http:\/\/localhost(:\d+)?$/
+  : process.env.CLIENT_URL;
+app.use(cors({ origin: corsOrigin }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
