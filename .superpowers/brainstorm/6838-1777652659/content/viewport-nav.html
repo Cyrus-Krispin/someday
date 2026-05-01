@@ -1,0 +1,62 @@
+<h2>Viewport Navigation: How should players move?</h2>
+<p class="subtitle">Game-design.md lists this as an open question. Choose the approach for the 15×15 tile viewport.</p>
+
+<div class="mockup">
+  <div class="mockup-header">Viewport Navigation Options</div>
+  <div class="mockup-body" style="padding: 20px;">
+    <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
+      <div style="flex: 1; min-width: 200px; border: 2px solid #e0e0e0; border-radius: 8px; padding: 15px;">
+        <h3 style="margin-top: 0;">Option A: Arrow Keys</h3>
+        <div style="background: #f5f5f5; padding: 15px; border-radius: 6px; margin: 10px 0; font-family: monospace; font-size: 12px;">
+          ↑<br>
+          ← ↓ →
+        </div>
+        <p><strong>Pros:</strong> Keyboard native, precise control</p>
+        <p><strong>Cons:</strong> Mobile unfriendly, needs on-screen buttons</p>
+      </div>
+      
+      <div style="flex: 1; min-width: 200px; border: 2px solid #e0e0e0; border-radius: 8px; padding: 15px;">
+        <h3 style="margin-top: 0;">Option B: Tap to Move</h3>
+        <div style="background: #f5f5f5; padding: 15px; border-radius: 6px; margin: 10px 0; font-size: 12px;">
+          Tap adjacent tile → Player moves there
+        </div>
+        <p><strong>Pros:</strong> Mobile native, intuitive, no extra UI</p>
+        <p><strong>Cons:</strong> No keyboard support for power users</p>
+      </div>
+      
+      <div style="flex: 1; min-width: 200px; border: 2px solid #e0e0e0; border-radius: 8px; padding: 15px;">
+        <h3 style="margin-top: 0;">Option C: Drag to Pan</h3>
+        <div style="background: #f5f5f5; padding: 15px; border-radius: 6px; margin: 10px 0; font-size: 12px;">
+          Drag viewport → Center on player<br>
+          Tap tile → Move there
+        </div>
+        <p><strong>Pros:</strong> See more of the world, natural mobile UX</p>
+        <p><strong>Cons:</strong> More complex to implement</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="arrow-keys" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Arrow Keys</h3>
+      <p>Keyboard-driven with on-screen button alternative for mobile</p>
+    </div>
+  </div>
+  <div class="option" data-choice="tap-to-move" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Tap to Move</h3>
+      <p>Simple tap adjacent tiles, most mobile-friendly</p>
+    </div>
+  </div>
+  <div class="option" data-choice="drag-to-pan" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Drag to Pan</h3>
+      <p>Pan around the map, tap to move (most complex)</p>
+    </div>
+  </div>
+</div>

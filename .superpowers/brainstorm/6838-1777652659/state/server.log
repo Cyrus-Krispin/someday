@@ -1,0 +1,5 @@
+{"type":"server-started","port":62571,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:62571","screen_dir":"/Users/cyrus/Projects/someday/.superpowers/brainstorm/6838-1777652659/content","state_dir":"/Users/cyrus/Projects/someday/.superpowers/brainstorm/6838-1777652659/state"}
+{"type":"screen-added","file":"/Users/cyrus/Projects/someday/.superpowers/brainstorm/6838-1777652659/content/viewport-nav.html"}
+{"source":"user-event","type":"click","text":"A\n    \n      Arrow Keys\n      Keyboard-driven with on-screen button alternative for mobile","choice":"arrow-keys","id":null,"timestamp":1777652797025}
+{"type":"screen-added","file":"/Users/cyrus/Projects/someday/.superpowers/brainstorm/6838-1777652659/content/waiting.html"}
+{"type":"server-stopped","reason":"idle timeout"}
