@@ -6,6 +6,7 @@ dotenv.config();
 
 const authRoutes = require('./routes/auth');
 const worldRoutes = require('./routes/world');
+const turnRoutes = require('./routes/turn');
 
 const app = express();
 
@@ -27,5 +28,6 @@ app.get('/', (req, res) => {
 // API Routes
 app.use('/auth', authRoutes);
 app.use('/world', worldRoutes);
+app.use('/turn', turnRoutes);
 
 module.exports = app;
