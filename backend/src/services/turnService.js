@@ -343,7 +343,7 @@ const endTurn = async (worldId, playerId) => {
     // TODO: Emit turn_start to next player via Socket.io
   }
 
-  return { success: true };
+  return { success: true, message: 'Turn ended successfully' };
 };
 
 module.exports = {
