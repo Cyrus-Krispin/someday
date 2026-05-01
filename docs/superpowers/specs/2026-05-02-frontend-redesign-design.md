@@ -9,7 +9,7 @@
 
 ## Problem Statement
 
-The frontend was removed and needs to be reimplemented from scratch using TDD methodology. The previous Expo init (commit `37c5d92`) and game logic utilities (commit `bad73f1`) were deleted. We need a clean Expo + React Native Web frontend that meets the hackathon success criteria.
+The frontend was removed and needs to be reimplemented from scratch using TDD methodology. The previous Expo init (commit `37c5d92`) and game logic utilities (commit `bad73f1`) were deleted. We will recover the game logic utilities (movement.ts, gather.ts, market.ts, score.ts) with their 82 tests as a starting point, then build the new Expo frontend around them.
 
 ---
 
