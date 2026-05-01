@@ -26,7 +26,8 @@ All implementation from Phase 2 (Frontend + Game Loop) onward MUST follow TDD:
 - Frontend: `__tests__/*.test.js` or colocate with components
 - Naming: `[filename].test.js`
 
-**Running Tests:**
+## Running Tests
+
 ```bash
 # Backend tests
 cd backend && npm test
