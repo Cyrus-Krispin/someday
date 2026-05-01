@@ -1,4 +1,4 @@
-export const getTerrainColor = (terrainType) => {
+export const getTerrainColor = (terrainType: string): string => {
   switch (terrainType) {
     case 'grassland':
       return '#7CFC00'; // Green
