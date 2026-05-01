@@ -4,6 +4,9 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
+const authRoutes = require('./routes/auth');
+const worldRoutes = require('./routes/world');
+
 const app = express();
 
 // Middleware
@@ -20,5 +23,9 @@ app.get('/health', (req, res) => {
 app.get('/', (req, res) => {
   res.send('Someday Game Backend Running');
 });
+
+// API Routes
+app.use('/auth', authRoutes);
+app.use('/world', worldRoutes);
 
 module.exports = app;
