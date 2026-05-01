@@ -11,5 +11,6 @@ module.exports = {
   },
   moduleNameMapper: {
     '^react-native$': 'react-native-web',
+    '^@react-native-async-storage/async-storage$': '<rootDir>/__mocks__/async-storage.js',
   },
 };
