@@ -1,4 +1,26 @@
-const SimplexNoise = require('simplex-noise');
+const { createNoise2D } = require('simplex-noise');
+
+// Hash string seed to a seeded random function for simplex-noise v4.x
+const hashSeed = (seed) => {
+  if (!seed) return undefined;
+
+  // Simple seeded PRNG (mulberry32)
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    const char = seed.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+
+  // Use the hash as the seed for a simple PRNG
+  let state = hash | 0;
+  return () => {
+    state = (state + 0x6D2B79F5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
 
 // Terrain types and their properties
 const TERRAIN = {
@@ -23,13 +45,13 @@ const LOCATIONS = {
  * @returns {Array} Array of tile objects
  */
 const generateWorld = (seed) => {
-  const simplex = new SimplexNoise(seed);
+  const noise2D = createNoise2D(seed ? hashSeed(seed) : undefined);
   const tiles = [];
   const size = 30;
 
   for (let x = 0; x < size; x++) {
     for (let y = 0; y < size; y++) {
-      const noise = simplex.noise2D(x / 10, y / 10);
+      const noise = noise2D(x / 10, y / 10);
       const terrain = getTerrainFromNoise(noise);
 
       const tile = {
@@ -82,7 +104,7 @@ const getInitialResourceQuantity = (resourceType) => {
  */
 const placeLocations = (tiles, seed, size) => {
   const locationSeed = seed + '_locations';
-  const locationSimplex = new SimplexNoise(locationSeed);
+  const locationNoise2D = createNoise2D(hashSeed(locationSeed));
 
   const locations = [
     { type: 'mine', count: 2 },
@@ -91,20 +113,22 @@ const placeLocations = (tiles, seed, size) => {
     { type: 'town_hall', count: 1 },
   ];
 
+  let globalIndex = 0;
+
   locations.forEach(({ type, count }) => {
     for (let i = 0; i < count; i++) {
-      // Use noise to find suitable positions (avoid water)
+      // Use noise to find suitable positions (avoid water and existing structures)
       let bestTile = null;
       let bestValue = -Infinity;
 
       // Sample candidate positions
       for (let attempt = 0; attempt < 50; attempt++) {
-        const nx = Math.floor(Math.abs(locationSimplex.noise2D(i, attempt)) * size) % size;
-        const ny = Math.floor(Math.abs(locationSimplex.noise2D(attempt, i)) * size) % size;
+        const nx = Math.floor(Math.abs(locationNoise2D(globalIndex, attempt)) * size) % size;
+        const ny = Math.floor(Math.abs(locationNoise2D(attempt, globalIndex)) * size) % size;
         const tile = tiles.find(t => t.x === nx && t.y === ny);
 
-        if (tile && tile.terrainType !== 'water') {
-          const value = locationSimplex.noise2D(nx + i * 100, ny + i * 100);
+        if (tile && tile.terrainType !== 'water' && !tile.structureType) {
+          const value = locationNoise2D(nx + globalIndex * 100, ny + globalIndex * 100);
           if (value > bestValue) {
             bestValue = value;
             bestTile = tile;
@@ -114,6 +138,7 @@ const placeLocations = (tiles, seed, size) => {
 
       if (bestTile) {
         bestTile.structureType = type;
+        globalIndex++;
       }
     }
   });
@@ -127,13 +152,13 @@ const placeLocations = (tiles, seed, size) => {
  */
 const getSpawnPositions = (playerCount, seed) => {
   const size = 30;
-  const simplex = new SimplexNoise(seed + '_spawn');
+  const spawnNoise2D = createNoise2D(hashSeed(seed + '_spawn'));
   const positions = [];
 
   // Divide map into quadrants and place players in different areas
   for (let i = 0; i < playerCount; i++) {
-    const nx = (i * size / playerCount + Math.abs(simplex.noise2D(i, 0)) * (size / playerCount / 2)) % size;
-    const ny = Math.abs(simplex.noise2D(0, i)) * size;
+    const nx = (i * size / playerCount + Math.abs(spawnNoise2D(i, 0)) * (size / playerCount / 2)) % size;
+    const ny = Math.abs(spawnNoise2D(0, i)) * size;
 
     const x = Math.floor(nx);
     const y = Math.floor(ny);

@@ -5,7 +5,7 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Worlds table
-CREATE TABLE worlds (
+CREATE TABLE IF NOT EXISTS worlds (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     seed VARCHAR(255) NOT NULL,
     game_day INTEGER NOT NULL DEFAULT 1,
@@ -17,7 +17,7 @@ CREATE TABLE worlds (
 );
 
 -- Players table
-CREATE TABLE players (
+CREATE TABLE IF NOT EXISTS players (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
@@ -35,7 +35,7 @@ CREATE TABLE players (
 );
 
 -- Tiles table
-CREATE TABLE tiles (
+CREATE TABLE IF NOT EXISTS tiles (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     world_id UUID NOT NULL REFERENCES worlds(id) ON DELETE CASCADE,
     x INTEGER NOT NULL,
@@ -52,7 +52,7 @@ CREATE TABLE tiles (
 );
 
 -- Turns table
-CREATE TABLE turns (
+CREATE TABLE IF NOT EXISTS turns (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     world_id UUID NOT NULL REFERENCES worlds(id) ON DELETE CASCADE,
     player_id UUID NOT NULL REFERENCES players(id) ON DELETE CASCADE,
@@ -62,7 +62,7 @@ CREATE TABLE turns (
 );
 
 -- Resources table
-CREATE TABLE resources (
+CREATE TABLE IF NOT EXISTS resources (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     player_id UUID NOT NULL REFERENCES players(id) ON DELETE CASCADE,
     type VARCHAR(50) NOT NULL,
@@ -73,7 +73,7 @@ CREATE TABLE resources (
 );
 
 -- Events table
-CREATE TABLE events (
+CREATE TABLE IF NOT EXISTS events (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     world_id UUID NOT NULL REFERENCES worlds(id) ON DELETE CASCADE,
     event_type VARCHAR(50) NOT NULL,
@@ -82,14 +82,14 @@ CREATE TABLE events (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Indexes for performance
-CREATE INDEX idx_players_world_id ON players(world_id);
-CREATE INDEX idx_tiles_world_id ON tiles(world_id);
-CREATE INDEX idx_tiles_coords ON tiles(world_id, x, y);
-CREATE INDEX idx_turns_world_id ON turns(world_id);
-CREATE INDEX idx_turns_player_id ON turns(player_id);
-CREATE INDEX idx_resources_player_id ON resources(player_id);
-CREATE INDEX idx_events_world_id ON events(world_id);
+-- Indexes for performance (IF NOT EXISTS requires PostgreSQL 9.5+)
+CREATE INDEX IF NOT EXISTS idx_players_world_id ON players(world_id);
+CREATE INDEX IF NOT EXISTS idx_tiles_world_id ON tiles(world_id);
+CREATE INDEX IF NOT EXISTS idx_tiles_coords ON tiles(world_id, x, y);
+CREATE INDEX IF NOT EXISTS idx_turns_world_id ON turns(world_id);
+CREATE INDEX IF NOT EXISTS idx_turns_player_id ON turns(player_id);
+CREATE INDEX IF NOT EXISTS idx_resources_player_id ON resources(player_id);
+CREATE INDEX IF NOT EXISTS idx_events_world_id ON events(world_id);
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -101,14 +101,26 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Apply updated_at trigger to tables with that column
-CREATE TRIGGER update_worlds_updated_at BEFORE UPDATE ON worlds
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_worlds_updated_at') THEN
+        CREATE TRIGGER update_worlds_updated_at BEFORE UPDATE ON worlds
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
 
-CREATE TRIGGER update_players_updated_at BEFORE UPDATE ON players
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_players_updated_at') THEN
+        CREATE TRIGGER update_players_updated_at BEFORE UPDATE ON players
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
 
-CREATE TRIGGER update_tiles_updated_at BEFORE UPDATE ON tiles
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_tiles_updated_at') THEN
+        CREATE TRIGGER update_tiles_updated_at BEFORE UPDATE ON tiles
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
 
-CREATE TRIGGER update_resources_updated_at BEFORE UPDATE ON resources
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_resources_updated_at') THEN
+        CREATE TRIGGER update_resources_updated_at BEFORE UPDATE ON resources
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+END
+$$;
