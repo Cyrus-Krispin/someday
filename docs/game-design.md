@@ -267,6 +267,27 @@ events       — id, world_id, event_type, starts_day, ends_day
 4. Deploy backend to Railway, frontend to Vercel
 5. Play a full game with 3 players, fix bugs
 6. Launch
+---
+
+## Development Methodology
+
+**Test-Driven Development (TDD) for Phase 2+**
+
+Starting from Day 2 (Frontend + Game Loop), all implementation MUST follow TDD:
+
+1. **Write tests first** — Define expected behavior before writing code
+2. **Backend tests** — Use Jest + Supertest for API endpoints
+3. **Frontend tests** — Use Jest + React Native Testing Library
+4. **Test types** — Unit tests (services/utils), integration tests (API routes), component tests (UI)
+5. **Red-Green-Refactor cycle** — Write failing test → Implement minimal code → Refactor
+
+**Testing Stack:**
+- Jest (test runner)
+- Supertest (HTTP assertions for Express)
+- React Native Testing Library (component testing)
+- jest-expo (for Expo projects)
+
+**Commit policy:** Every feature must have passing tests before commit. No exceptions.
 
 ---
 
