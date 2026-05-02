@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  ScrollView,
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { useGame } from '../contexts/GameContext';
@@ -29,6 +28,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({ navigation }) => {
     loading,
     error,
     endTurn,
+    moveInDirection,
   } = useGame();
 
   useEffect(() => {
@@ -45,6 +45,22 @@ export const GameScreen: React.FC<GameScreenProps> = ({ navigation }) => {
     return cleanup;
   }, [loadTurnState, loadWorldState, refreshProfile]);
 
+  const isMyTurn = turnState?.isPlayerTurn ?? false;
+
+  useEffect(() => {
+    if (!isMyTurn) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      switch (e.key) {
+        case 'ArrowUp':    e.preventDefault(); moveInDirection(0, -1); break;
+        case 'ArrowDown':  e.preventDefault(); moveInDirection(0,  1); break;
+        case 'ArrowLeft':  e.preventDefault(); moveInDirection(-1, 0); break;
+        case 'ArrowRight': e.preventDefault(); moveInDirection( 1, 0); break;
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isMyTurn, moveInDirection]);
+
   const handleEndTurn = async () => {
     try {
       await endTurn();
@@ -52,19 +68,10 @@ export const GameScreen: React.FC<GameScreenProps> = ({ navigation }) => {
     } catch {}
   };
 
-  const isMyTurn = turnState?.isPlayerTurn ?? false;
-
   return (
     <View style={styles.container}>
-      <PlayerHUD
-        tokens={player?.tokens ?? 0}
-        score={player?.score ?? 0}
-        gameDay={world?.gameDay ?? 0}
-        isMyTurn={isMyTurn}
-        onOpenTownHall={() => navigation.navigate('TownHall')}
-      />
-
-      <View style={styles.gridContainer}>
+      {/* Map fills the entire screen */}
+      <View style={styles.mapLayer}>
         {tiles.length > 0 ? (
           <TileGrid
             tiles={tiles}
@@ -81,12 +88,26 @@ export const GameScreen: React.FC<GameScreenProps> = ({ navigation }) => {
         )}
       </View>
 
-      <ActionPanel
-        isMyTurn={isMyTurn}
-        onEndTurn={handleEndTurn}
-        loading={loading}
-        error={error}
-      />
+      {/* HUD overlaid at top */}
+      <View style={styles.hudOverlay}>
+        <PlayerHUD
+          tokens={player?.tokens ?? 0}
+          score={player?.score ?? 0}
+          gameDay={world?.gameDay ?? 0}
+          isMyTurn={isMyTurn}
+          onOpenTownHall={() => navigation.navigate('TownHall')}
+        />
+      </View>
+
+      {/* Action panel overlaid at bottom */}
+      <View style={styles.actionOverlay}>
+        <ActionPanel
+          isMyTurn={isMyTurn}
+          onEndTurn={handleEndTurn}
+          loading={loading}
+          error={error}
+        />
+      </View>
 
       {world?.status === 'COMPLETED' && (
         <TouchableOpacity
@@ -105,9 +126,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#1a1a2e',
+    position: 'relative',
   },
-  gridContainer: {
-    flex: 1,
+  mapLayer: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -119,6 +145,20 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 16,
   },
+  hudOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+  },
+  actionOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+  },
   gameOverOverlay: {
     position: 'absolute',
     bottom: 0,
@@ -127,6 +167,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#e94560',
     padding: 16,
     alignItems: 'center',
+    zIndex: 20,
   },
   gameOverText: {
     color: '#fff',

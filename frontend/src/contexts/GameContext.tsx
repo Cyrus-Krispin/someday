@@ -1,8 +1,8 @@
-import React, { createContext, useContext, useReducer, useCallback } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useMemo } from 'react';
 import { api } from '../api/client';
 import { listenForTurnStart } from '../services/socket';
 import type { TileData, TurnState, QueuedAction, WorldState } from '../types';
-import { MAX_MOVEMENT, MAX_ACTIONS, getMoveCost } from '../services/gameUtils';
+import { MAX_MOVEMENT, MAX_ACTIONS, WORLD_SIZE, getMoveCost } from '../services/gameUtils';
 
 interface GameState {
   world: {
@@ -43,7 +43,7 @@ const initialState: GameState = {
   error: null,
 };
 
-const gameReducer = (state: GameState, action: GameAction): GameState => {
+export const gameReducer = (state: GameState, action: GameAction): GameState => {
   switch (action.type) {
     case 'SET_WORLD':
       return { ...state, world: action.world, tiles: action.tiles, viewport: action.viewport };
@@ -90,6 +90,8 @@ interface GameContextValue extends GameState {
   endTurn: () => Promise<void>;
   movementRemaining: number;
   actionsRemaining: number;
+  simulatedPosition: { x: number; y: number };
+  moveInDirection: (dx: number, dy: number) => boolean;
 }
 
 const GameContext = createContext<GameContextValue | null>(null);
@@ -99,6 +101,38 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const movementRemaining = MAX_MOVEMENT - state.movementUsed;
   const actionsRemaining = MAX_ACTIONS - state.actionsUsed;
+
+  const baseX = state.turnState?.currentPlayer?.x ?? 0;
+  const baseY = state.turnState?.currentPlayer?.y ?? 0;
+
+  const simulatedPosition = useMemo(() => {
+    let x = baseX;
+    let y = baseY;
+    for (const a of state.queuedActions) {
+      if (a.type === 'move' && a.targetX !== undefined && a.targetY !== undefined) {
+        x = a.targetX;
+        y = a.targetY;
+      }
+    }
+    return { x, y };
+  }, [baseX, baseY, state.queuedActions]);
+
+  const moveInDirection = useCallback((dx: number, dy: number): boolean => {
+    const targetX = simulatedPosition.x + dx;
+    const targetY = simulatedPosition.y + dy;
+
+    if (targetX < 0 || targetX >= WORLD_SIZE || targetY < 0 || targetY >= WORLD_SIZE) {
+      return false;
+    }
+
+    const tile = state.tiles.find(t => t.x === targetX && t.y === targetY);
+    const cost = getMoveCost(tile?.terrain_type ?? 'grassland');
+    if (cost === null) return false;
+    if (movementRemaining < cost) return false;
+
+    dispatch({ type: 'QUEUE_ACTION', action: { type: 'move', targetX, targetY } });
+    return true;
+  }, [simulatedPosition, state.tiles, movementRemaining]);
 
   const createWorld = useCallback(async () => {
     dispatch({ type: 'SET_LOADING', loading: true });
@@ -170,7 +204,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         t => t.x === action.targetX && t.y === action.targetY
       )?.terrain_type || 'grassland';
       const cost = getMoveCost(terrainType);
-      if (cost === null) return false; // water
+      if (cost === null) return false;
       if (movementRemaining < cost) return false;
     }
     if (action.type === 'gather' || action.type === 'work') {
@@ -190,7 +224,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await api.processTurn(state.queuedActions);
       await api.endTurn();
       dispatch({ type: 'CLEAR_ACTIONS' });
-      // Reload state after ending turn
       await loadWorldState();
       await loadTurnState();
     } catch (err: any) {
@@ -214,6 +247,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         endTurn,
         movementRemaining,
         actionsRemaining,
+        simulatedPosition,
+        moveInDirection,
       }}
     >
       {children}

@@ -106,9 +106,9 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#16213e',
+    backgroundColor: 'rgba(17, 24, 39, 0.92)',
     borderTopWidth: 1,
-    borderTopColor: '#2a2a4e',
+    borderTopColor: 'rgba(42, 42, 78, 0.6)',
     paddingHorizontal: 12,
     paddingVertical: 10,
     paddingBottom: 24,

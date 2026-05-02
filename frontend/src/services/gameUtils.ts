@@ -61,7 +61,9 @@ export const RESOURCE_VALUES: Record<string, number> = {
 };
 
 export const getMoveCost = (terrainType: string): number | null => {
-  return TERRAIN[terrainType]?.moveCost ?? 1;
+  const terrain = TERRAIN[terrainType];
+  if (!terrain) return 1;
+  return terrain.moveCost; // null means impassable (water)
 };
 
 export const getResourceValue = (resourceType: string): number => {

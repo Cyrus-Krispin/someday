@@ -48,12 +48,12 @@ export const PlayerHUD: React.FC<PlayerHUDProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#16213e',
+    backgroundColor: 'rgba(17, 24, 39, 0.92)',
     paddingHorizontal: 12,
     paddingVertical: 8,
     paddingTop: 50,
     borderBottomWidth: 1,
-    borderBottomColor: '#2a2a4e',
+    borderBottomColor: 'rgba(42, 42, 78, 0.6)',
   },
   row: {
     flexDirection: 'row',

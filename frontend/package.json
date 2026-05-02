@@ -9,7 +9,9 @@
     "web": "expo start --web",
     "build:web": "expo export --platform web",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@react-navigation/native": "^7.1.0",
@@ -25,8 +27,16 @@
     "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/react": "~19.1.0",
-    "typescript": "~5.9.2"
+    "@vitejs/plugin-react": "^4.7.0",
+    "@vitest/ui": "^2.1.9",
+    "jsdom": "^25.0.1",
+    "typescript": "~5.9.2",
+    "vite": "^6.4.2",
+    "vitest": "^2.1.9"
   },
   "private": true
 }
