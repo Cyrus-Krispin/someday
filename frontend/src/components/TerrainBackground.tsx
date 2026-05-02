@@ -68,7 +68,11 @@ export const TerrainBackground: React.FC<TerrainBackgroundProps> = ({ children }
 
   return (
     <View style={styles.container}>
-      <Svg style={StyleSheet.absoluteFill}>
+      <Svg
+        style={StyleSheet.absoluteFill}
+        viewBox="0 0 400 110"
+        preserveAspectRatio="none"
+      >
         <Defs>
           <LinearGradient id={skyId} x1="0" y1="0" x2="0" y2="1">
             <Stop offset="0%" stopColor="#05051a" />
@@ -96,8 +100,8 @@ export const TerrainBackground: React.FC<TerrainBackgroundProps> = ({ children }
         {starData.map((star, i) => (
           <Circle
             key={i}
-            cx={`${star.cx * 100}%`}
-            cy={`${star.cy * 100}%`}
+            cx={star.cx * 400}
+            cy={star.cy * 110}
             r={star.r}
             fill="#ffffff"
             opacity={star.o}
@@ -105,22 +109,22 @@ export const TerrainBackground: React.FC<TerrainBackgroundProps> = ({ children }
         ))}
 
         <Circle
-          cx="75%"
-          cy="38%"
+          cx={300}
+          cy={42}
           r="60"
           fill="#e8c4a0"
           opacity={0.08}
         />
         <Circle
-          cx="75%"
-          cy="38%"
+          cx={300}
+          cy={42}
           r="45"
           fill="#f0d4b8"
           opacity={0.12}
         />
         <Circle
-          cx="75%"
-          cy="38%"
+          cx={300}
+          cy={42}
           r="35"
           fill="#f8e4c8"
           opacity={0.15}
