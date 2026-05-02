@@ -8,8 +8,10 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
+import { TerrainBackground } from '../components/TerrainBackground';
 
 interface AuthScreenProps {
   navigation: any;
@@ -61,7 +63,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = () => {
         await signup(email, password);
       }
     } catch {
-      // error shown via AuthContext's error state
     } finally {
       setIsSubmitting(false);
     }
@@ -72,157 +73,227 @@ export const AuthScreen: React.FC<AuthScreenProps> = () => {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View style={styles.inner}>
-        <Text style={styles.title}>SOMEDAY</Text>
-        <Text style={styles.subtitle}>Async World-Building Game</Text>
-
-        <View style={styles.card}>
-          {/* Tab row */}
-          <View style={styles.tabRow}>
+      <TerrainBackground>
+        <View style={styles.overlay}>
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+            bounces={false}
+          >
             <TouchableOpacity
-              style={[styles.tab, isLogin && styles.tabActive]}
-              onPress={() => switchTab(true)}
-              accessibilityRole="tab"
+              style={styles.signInBadge}
+              onPress={() => {}}
+              activeOpacity={0.7}
             >
-              <Text style={[styles.tabText, isLogin && styles.tabTextActive]}>LOGIN</Text>
+              <Text style={styles.signInBadgeText}>Sign In</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tab, !isLogin && styles.tabActive]}
-              onPress={() => switchTab(false)}
-              accessibilityRole="tab"
-            >
-              <Text style={[styles.tabText, !isLogin && styles.tabTextActive]}>SIGN UP</Text>
-            </TouchableOpacity>
-          </View>
 
-          {/* Form */}
-          <View style={styles.form}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={[styles.input, inputBorder('email')]}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="you@example.com"
-              placeholderTextColor="#4a5568"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              autoComplete="email"
-              onFocus={() => setFocusedField('email')}
-              onBlur={() => setFocusedField(null)}
-            />
+            <View style={styles.hero}>
+              <Text style={styles.title}>SOMEDAY</Text>
+              <Text style={styles.subtitle}>Async World-Building Game</Text>
+              <View style={styles.titleAccent} />
+            </View>
 
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={[styles.input, inputBorder('password'), localErrors.password ? styles.inputError : undefined]}
-              value={password}
-              onChangeText={(v) => {
-                setPassword(v);
-                if (localErrors.password) setLocalErrors(e => ({ ...e, password: undefined }));
-              }}
-              placeholder="Password"
-              placeholderTextColor="#4a5568"
-              secureTextEntry
-              autoComplete={isLogin ? 'password' : 'new-password'}
-              onFocus={() => setFocusedField('password')}
-              onBlur={() => setFocusedField(null)}
-            />
-            {localErrors.password ? (
-              <Text style={styles.fieldError}>{localErrors.password}</Text>
-            ) : null}
+            <View style={styles.cardWrapper}>
+              <View style={styles.cardGlow} />
+              <View style={styles.card}>
+                <View style={styles.tabRow}>
+                  <TouchableOpacity
+                    style={[styles.tab, isLogin && styles.tabActive]}
+                    onPress={() => switchTab(true)}
+                    accessibilityRole="tab"
+                  >
+                    <Text style={[styles.tabText, isLogin && styles.tabTextActive]}>LOGIN</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.tab, !isLogin && styles.tabActive]}
+                    onPress={() => switchTab(false)}
+                    accessibilityRole="tab"
+                  >
+                    <Text style={[styles.tabText, !isLogin && styles.tabTextActive]}>SIGN UP</Text>
+                  </TouchableOpacity>
+                </View>
 
-            {!isLogin && (
-              <>
-                <Text style={styles.label}>Confirm Password</Text>
-                <TextInput
-                  style={[styles.input, inputBorder('confirm'), localErrors.confirmPassword ? styles.inputError : undefined]}
-                  value={confirmPassword}
-                  onChangeText={(v) => {
-                    setConfirmPassword(v);
-                    if (localErrors.confirmPassword) setLocalErrors(e => ({ ...e, confirmPassword: undefined }));
-                  }}
-                  placeholder="Confirm password"
-                  placeholderTextColor="#4a5568"
-                  secureTextEntry
-                  onFocus={() => setFocusedField('confirm')}
-                  onBlur={() => setFocusedField(null)}
-                />
-                {localErrors.confirmPassword ? (
-                  <Text style={styles.fieldError}>{localErrors.confirmPassword}</Text>
-                ) : null}
-              </>
-            )}
+                <View style={styles.form}>
+                  <Text style={styles.label}>Email</Text>
+                  <TextInput
+                    style={[styles.input, inputBorder('email')]}
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="you@example.com"
+                    placeholderTextColor="#4a5568"
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    autoComplete="email"
+                    onFocus={() => setFocusedField('email')}
+                    onBlur={() => setFocusedField(null)}
+                  />
 
-            {error ? <Text style={styles.serverError}>{error}</Text> : null}
+                  <Text style={styles.label}>Password</Text>
+                  <TextInput
+                    style={[styles.input, inputBorder('password'), localErrors.password ? styles.inputError : undefined]}
+                    value={password}
+                    onChangeText={(v) => {
+                      setPassword(v);
+                      if (localErrors.password) setLocalErrors(e => ({ ...e, password: undefined }));
+                    }}
+                    placeholder="Password"
+                    placeholderTextColor="#4a5568"
+                    secureTextEntry
+                    autoComplete={isLogin ? 'password' : 'new-password'}
+                    onFocus={() => setFocusedField('password')}
+                    onBlur={() => setFocusedField(null)}
+                  />
+                  {localErrors.password ? (
+                    <Text style={styles.fieldError}>{localErrors.password}</Text>
+                  ) : null}
 
-            <TouchableOpacity
-              style={[styles.button, isSubmitting && styles.buttonDisabled]}
-              onPress={handleSubmit}
-              disabled={isSubmitting}
-              role="button"
-              accessibilityLabel={isLogin ? 'Log In' : 'Sign Up'}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.buttonText}>
-                  {isLogin ? 'Log In' : 'Sign Up'}
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
+                  {!isLogin && (
+                    <>
+                      <Text style={styles.label}>Confirm Password</Text>
+                      <TextInput
+                        style={[styles.input, inputBorder('confirm'), localErrors.confirmPassword ? styles.inputError : undefined]}
+                        value={confirmPassword}
+                        onChangeText={(v) => {
+                          setConfirmPassword(v);
+                          if (localErrors.confirmPassword) setLocalErrors(e => ({ ...e, confirmPassword: undefined }));
+                        }}
+                        placeholder="Confirm password"
+                        placeholderTextColor="#4a5568"
+                        secureTextEntry
+                        onFocus={() => setFocusedField('confirm')}
+                        onBlur={() => setFocusedField(null)}
+                      />
+                      {localErrors.confirmPassword ? (
+                        <Text style={styles.fieldError}>{localErrors.confirmPassword}</Text>
+                      ) : null}
+                    </>
+                  )}
+
+                  {error ? <Text style={styles.serverError}>{error}</Text> : null}
+
+                  <TouchableOpacity
+                    style={[styles.button, isSubmitting && styles.buttonDisabled]}
+                    onPress={handleSubmit}
+                    disabled={isSubmitting}
+                    role="button"
+                    accessibilityLabel={isLogin ? 'Log In' : 'Sign Up'}
+                  >
+                    {isSubmitting ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={styles.buttonText}>
+                        {isLogin ? 'Log In' : 'Sign Up'}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </ScrollView>
         </View>
-      </View>
+      </TerrainBackground>
     </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  flex: {
     flex: 1,
-    backgroundColor: '#0d0d1a',
   },
-  inner: {
+  overlay: {
     flex: 1,
-    justifyContent: 'center',
-    padding: 24,
-    maxWidth: 440,
-    width: '100%',
-    alignSelf: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  scroll: {
+    flexGrow: 1,
+    paddingBottom: 40,
+    minHeight: '100%',
+  },
+  signInBadge: {
+    position: 'absolute',
+    top: 60,
+    right: 24,
+    backgroundColor: 'rgba(233,69,96,0.15)',
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(233,69,96,0.3)',
+    zIndex: 10,
+  },
+  signInBadgeText: {
+    color: '#e94560',
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+  },
+  hero: {
+    alignItems: 'center',
+    paddingTop: 120,
+    paddingBottom: 20,
   },
   title: {
-    fontSize: 42,
+    fontSize: 56,
     fontWeight: '900',
-    color: '#e94560',
+    color: '#ffffff',
     textAlign: 'center',
-    letterSpacing: 8,
-    marginBottom: 6,
+    letterSpacing: 12,
+    textShadow: '0 0 40px rgba(233, 69, 96, 0.5)',
   },
   subtitle: {
-    fontSize: 13,
-    color: '#4a5568',
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.6)',
     textAlign: 'center',
-    letterSpacing: 2,
+    letterSpacing: 4,
     textTransform: 'uppercase',
-    marginBottom: 36,
+    marginTop: 12,
+  },
+  titleAccent: {
+    width: 60,
+    height: 2,
+    backgroundColor: '#e94560',
+    borderRadius: 1,
+    marginTop: 16,
+    opacity: 0.6,
+  },
+  cardWrapper: {
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    alignItems: 'center',
+  },
+  cardGlow: {
+    position: 'absolute',
+    top: 28,
+    left: 32,
+    right: 32,
+    height: 120,
+    backgroundColor: '#e94560',
+    borderRadius: 20,
+    opacity: 0.08,
+    zIndex: 0,
   },
   card: {
-    backgroundColor: '#111827',
-    borderRadius: 16,
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#1f2a40',
+    borderColor: 'rgba(31, 42, 64, 0.8)',
     overflow: 'hidden',
+    zIndex: 1,
   },
   tabRow: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: '#1f2a40',
+    borderBottomColor: 'rgba(31, 42, 64, 0.8)',
   },
   tab: {
     flex: 1,
-    paddingVertical: 14,
+    paddingVertical: 16,
     alignItems: 'center',
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
@@ -243,22 +314,22 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   label: {
-    color: '#9ca3af',
-    fontSize: 12,
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 11,
     fontWeight: '600',
-    letterSpacing: 1,
+    letterSpacing: 1.5,
     textTransform: 'uppercase',
-    marginBottom: 6,
+    marginBottom: 8,
     marginTop: 16,
   },
   input: {
-    backgroundColor: '#0f172a',
+    backgroundColor: 'rgba(15, 23, 42, 0.8)',
     color: '#f1f5f9',
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: 10,
+    padding: 14,
     fontSize: 15,
     borderWidth: 1,
-    borderColor: '#1f2a40',
+    borderColor: 'rgba(31, 42, 64, 0.8)',
   },
   inputError: {
     borderColor: '#e94560',
@@ -266,7 +337,7 @@ const styles = StyleSheet.create({
   fieldError: {
     color: '#e94560',
     fontSize: 12,
-    marginTop: 4,
+    marginTop: 6,
   },
   serverError: {
     color: '#e94560',
@@ -274,13 +345,13 @@ const styles = StyleSheet.create({
     marginTop: 16,
     textAlign: 'center',
     backgroundColor: 'rgba(233, 69, 96, 0.1)',
-    borderRadius: 6,
-    padding: 8,
+    borderRadius: 8,
+    padding: 10,
   },
   button: {
     backgroundColor: '#e94560',
-    borderRadius: 8,
-    padding: 14,
+    borderRadius: 10,
+    padding: 16,
     alignItems: 'center',
     marginTop: 24,
   },
