@@ -24,6 +24,7 @@ const signupAndGetToken = async (email: string): Promise<string> => {
 beforeEach(async () => {
   await pool.query('DELETE FROM turns');
   await pool.query('DELETE FROM resources');
+  await pool.query('DELETE FROM tile_state');
   await pool.query('DELETE FROM tiles');
   await pool.query('DELETE FROM events');
   await pool.query('DELETE FROM players');
@@ -99,12 +100,13 @@ describe('World Endpoints', () => {
     it('should reject joining non-active world', async () => {
       const playerToken = await signupAndGetToken('world-player-completed@test.com');
 
-      // Create another world and mark it completed
-      const worldRes = await request(app)
+      // Create a fresh creator to create a second world
+      const secondCreatorToken = await signupAndGetToken('world-creator-completed@test.com');
+      const world2Res = await request(app)
         .post('/world/create')
-        .set('Authorization', `Bearer ${creatorToken}`);
-      const joinCode = worldRes.body.world.joinCode;
-      const worldId = worldRes.body.world.id;
+        .set('Authorization', `Bearer ${secondCreatorToken}`);
+      const joinCode = world2Res.body.world.joinCode;
+      const worldId = world2Res.body.world.id;
 
       await pool.query("UPDATE worlds SET status = 'COMPLETED' WHERE id = $1", [worldId]);
 
@@ -210,6 +212,100 @@ describe('World Endpoints', () => {
     it('should require authentication', async () => {
       const res = await request(app)
         .get('/world/state');
+
+      expect(res.statusCode).toBe(401);
+    });
+  });
+
+  describe('GET /world/myworld', () => {
+    it('should return player current world', async () => {
+      const token = await signupAndGetToken('myworld-player@test.com');
+
+      const worldRes = await request(app)
+        .post('/world/create')
+        .set('Authorization', `Bearer ${token}`);
+
+      const res = await request(app)
+        .get('/world/myworld')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toHaveProperty('world');
+      expect(res.body.world).toHaveProperty('id');
+      expect(res.body.world).toHaveProperty('joinCode');
+      expect(res.body.world.joinCode).toHaveLength(6);
+      expect(res.body.world.playerCount).toBe(1);
+    });
+
+    it('should return 404 if player not in a world', async () => {
+      const token = await signupAndGetToken('myworld-non@test.com');
+
+      const res = await request(app)
+        .get('/world/myworld')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.statusCode).toBe(404);
+      expect(res.body.error).toBe('Not in a world');
+    });
+
+    it('should require authentication', async () => {
+      const res = await request(app)
+        .get('/world/myworld');
+
+      expect(res.statusCode).toBe(401);
+    });
+  });
+
+  describe('POST /world/rejoin', () => {
+    it('should rejoin current world', async () => {
+      const token = await signupAndGetToken('rejoin-player@test.com');
+
+      const worldRes = await request(app)
+        .post('/world/create')
+        .set('Authorization', `Bearer ${token}`);
+
+      const res = await request(app)
+        .post('/world/rejoin')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toHaveProperty('world');
+      expect(res.body.world.id).toBe(worldRes.body.world.id);
+      expect(res.body.world.joinCode).toBe(worldRes.body.world.joinCode);
+    });
+
+    it('should return 400 if player not in a world', async () => {
+      const token = await signupAndGetToken('rejoin-non@test.com');
+
+      const res = await request(app)
+        .post('/world/rejoin')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.error).toBe('Player not in a world');
+    });
+
+    it('should reject if world is not active', async () => {
+      const token = await signupAndGetToken('rejoin-completed@test.com');
+
+      const worldRes = await request(app)
+        .post('/world/create')
+        .set('Authorization', `Bearer ${token}`);
+
+      const worldId = worldRes.body.world.id;
+      await pool.query("UPDATE worlds SET status = 'COMPLETED' WHERE id = $1", [worldId]);
+
+      const res = await request(app)
+        .post('/world/rejoin')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.error).toBe('World is no longer active');
+    });
+
+    it('should require authentication', async () => {
+      const res = await request(app)
+        .post('/world/rejoin');
 
       expect(res.statusCode).toBe(401);
     });

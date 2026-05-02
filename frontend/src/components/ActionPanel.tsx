@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { useGame } from '../contexts/GameContext';
 import { MAX_MOVEMENT, MAX_ACTIONS } from '../services/gameUtils';
@@ -43,28 +44,29 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
   const canClear = queuedActions.length > 0 && !loading;
 
   return (
-    <View style={styles.container}>
+    <View style={styles.card}>
       <View style={styles.statsRow}>
-        <View style={styles.statChip}>
-          <Text style={styles.statLabel}>Move</Text>
-          <Text style={styles.statValue}>
-            {movementRemaining}/{MAX_MOVEMENT}
+        <View style={styles.chip}>
+          <Text style={styles.chipText}>
+            🚶 {movementRemaining}/{MAX_MOVEMENT}
           </Text>
         </View>
-        <View style={styles.statChip}>
-          <Text style={styles.statLabel}>Actions</Text>
-          <Text style={styles.statValue}>
-            {actionsRemaining}/{MAX_ACTIONS}
+        <View style={styles.chip}>
+          <Text style={styles.chipText}>
+            ⚡ {actionsRemaining}/{MAX_ACTIONS}
           </Text>
         </View>
-        <View style={styles.statChip}>
-          <Text style={styles.statLabel}>Queued</Text>
-          <Text style={styles.statValue}>{queuedActions.length}</Text>
+        <View style={styles.chip}>
+          <Text style={styles.chipText}>📋 {queuedActions.length}</Text>
         </View>
       </View>
 
       {queuedActions.length > 0 && (
-        <ScrollView style={styles.queueList} horizontal showsHorizontalScrollIndicator={false}>
+        <ScrollView
+          style={styles.queueList}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+        >
           {queuedActions.map((action, i) => (
             <View key={i} style={styles.queueItem}>
               <Text style={styles.queueItemText}>{actionLabel(action)}</Text>
@@ -78,6 +80,7 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
           style={[styles.clearButton, !canClear && styles.disabledButton]}
           onPress={clearActions}
           disabled={!canClear}
+          activeOpacity={0.7}
         >
           <Text style={[styles.clearButtonText, !canClear && styles.disabledText]}>
             Clear
@@ -88,6 +91,7 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
           style={[styles.endTurnButton, !canEndTurn && styles.disabledButton]}
           onPress={onEndTurn}
           disabled={!canEndTurn}
+          activeOpacity={0.7}
         >
           {loading ? (
             <ActivityIndicator color="#fff" size="small" />
@@ -105,51 +109,63 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: 'rgba(17, 24, 39, 0.92)',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(42, 42, 78, 0.6)',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    paddingBottom: 24,
+  card: {
+    backgroundColor: 'rgba(10, 14, 30, 0.84)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.07)',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    minWidth: 240,
+    maxWidth: 360,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.35,
+        shadowRadius: 14,
+      },
+      default: {
+        elevation: 10,
+      },
+    }),
   },
   statsRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
     marginBottom: 8,
   },
-  statChip: {
+  chip: {
     flex: 1,
-    backgroundColor: '#0f0f1e',
-    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
     paddingVertical: 6,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.04)',
   },
-  statLabel: {
-    color: '#666',
-    fontSize: 10,
-    textTransform: 'uppercase',
-  },
-  statValue: {
-    color: '#fff',
-    fontSize: 14,
+  chipText: {
+    color: '#c0c0d0',
+    fontSize: 12,
     fontWeight: '600',
-    marginTop: 2,
   },
   queueList: {
     marginBottom: 8,
-    maxHeight: 36,
+    maxHeight: 30,
   },
   queueItem: {
-    backgroundColor: '#0f3460',
-    borderRadius: 4,
+    backgroundColor: 'rgba(15, 52, 96, 0.5)',
+    borderRadius: 12,
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 4,
     marginRight: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(15, 52, 96, 0.4)',
   },
   queueItemText: {
     color: '#a0c0f0',
-    fontSize: 12,
+    fontSize: 11,
+    fontWeight: '500',
   },
   buttonRow: {
     flexDirection: 'row',
@@ -157,37 +173,50 @@ const styles = StyleSheet.create({
   },
   clearButton: {
     flex: 1,
-    backgroundColor: '#2a2a4e',
-    borderRadius: 8,
-    paddingVertical: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: 10,
+    paddingVertical: 10,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   clearButtonText: {
     color: '#a0a0d0',
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '600',
   },
   endTurnButton: {
     flex: 2,
     backgroundColor: '#e94560',
-    borderRadius: 8,
-    paddingVertical: 12,
+    borderRadius: 10,
+    paddingVertical: 10,
     alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#e94560',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.4,
+        shadowRadius: 8,
+      },
+      default: {
+        elevation: 4,
+      },
+    }),
   },
   endTurnText: {
     color: '#fff',
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '700',
   },
   disabledButton: {
-    opacity: 0.4,
+    opacity: 0.35,
   },
   disabledText: {
     opacity: 0.6,
   },
   errorText: {
-    color: '#e94560',
-    fontSize: 12,
+    color: '#f87171',
+    fontSize: 11,
     textAlign: 'center',
     marginTop: 8,
   },

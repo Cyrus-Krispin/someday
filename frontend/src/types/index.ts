@@ -36,6 +36,8 @@ export interface WorldState {
     game_day: number;
     status: string;
     join_code: string;
+    seed: string;
+    worldSize: number;
   };
   tiles: TileData[];
   viewport: {
@@ -77,6 +79,14 @@ export interface PlayerProfile {
   y: number;
   movement_remaining: number;
   actions_remaining: number;
+}
+
+export interface MyWorld {
+  id: string;
+  joinCode: string;
+  gameDay: number;
+  status: string;
+  playerCount: number;
 }
 
 export interface QueuedAction {

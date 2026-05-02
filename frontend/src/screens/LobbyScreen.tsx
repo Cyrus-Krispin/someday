@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,19 +9,44 @@ import {
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { useGame } from '../contexts/GameContext';
+import { api } from '../api/client';
+import type { MyWorld } from '../types';
 
 interface LobbyScreenProps {
   navigation: any;
 }
 
 export const LobbyScreen: React.FC<LobbyScreenProps> = ({ navigation }) => {
-  const { player, logout } = useAuth();
-  const { world, createWorld, joinWorld, loadWorldState, loadTurnState, loading, error } = useGame();
+  const { player, logout, refreshProfile } = useAuth();
+  const { world, createWorld, joinWorld, rejoinWorld, loadWorldState, loadTurnState, loading, error } = useGame();
   const [joinCode, setJoinCode] = useState('');
+  const [myWorld, setMyWorld] = useState<MyWorld | null>(null);
+  const [myWorldLoading, setMyWorldLoading] = useState(false);
+
+  const fetchMyWorld = useCallback(async () => {
+    if (!player?.world_id) {
+      setMyWorld(null);
+      return;
+    }
+    setMyWorldLoading(true);
+    try {
+      const data = await api.getMyWorld();
+      setMyWorld(data.world);
+    } catch {
+      setMyWorld(null);
+    } finally {
+      setMyWorldLoading(false);
+    }
+  }, [player?.world_id]);
+
+  useEffect(() => {
+    fetchMyWorld();
+  }, [fetchMyWorld]);
 
   const handleCreateWorld = async () => {
     try {
       await createWorld();
+      await refreshProfile();
     } catch {}
   };
 
@@ -29,6 +54,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({ navigation }) => {
     if (!joinCode.trim()) return;
     try {
       await joinWorld(joinCode.trim().toUpperCase());
+      await refreshProfile();
     } catch {}
   };
 
@@ -40,6 +66,16 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({ navigation }) => {
     } catch {}
   };
 
+  const handleRejoinGame = async () => {
+    try {
+      await rejoinWorld();
+      await loadWorldState();
+      await loadTurnState();
+      navigation.navigate('Game');
+    } catch {}
+  };
+
+  const showMyWorld = myWorld !== null;
   const inWorld = world !== null;
 
   return (
@@ -53,7 +89,28 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({ navigation }) => {
       </View>
 
       <View style={styles.content}>
-        {inWorld ? (
+        {showMyWorld && !inWorld ? (
+          <View style={styles.card}>
+            <Text style={styles.statusText}>My World</Text>
+            <Text style={styles.joinCodeLabel}>Join Code</Text>
+            <Text style={styles.joinCode}>{myWorld.joinCode}</Text>
+            <Text style={styles.info}>Game Day: {myWorld.gameDay}</Text>
+            <Text style={styles.info}>Players: {myWorld.playerCount} / 3</Text>
+            <Text style={styles.info}>Share this code with friends to join</Text>
+
+            <TouchableOpacity
+              style={styles.button}
+              onPress={handleRejoinGame}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Enter Game</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : inWorld ? (
           <View style={styles.card}>
             <Text style={styles.statusText}>You are in a world!</Text>
             <Text style={styles.joinCodeLabel}>Join Code</Text>

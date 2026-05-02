@@ -5,7 +5,9 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 import { useGame } from '../contexts/GameContext';
 import { TileGrid } from '../components/TileGrid';
@@ -30,6 +32,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({ navigation }) => {
     endTurn,
     moveInDirection,
   } = useGame();
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     loadWorldState();
@@ -88,8 +91,14 @@ export const GameScreen: React.FC<GameScreenProps> = ({ navigation }) => {
         )}
       </View>
 
-      {/* HUD overlaid at top */}
-      <View style={styles.hudOverlay}>
+      {/* HUD floating card — top left */}
+      <View
+        style={[
+          styles.hudOverlay,
+          { top: insets.top + 10, left: insets.left + 10 },
+        ]}
+        pointerEvents="box-none"
+      >
         <PlayerHUD
           tokens={player?.tokens ?? 0}
           score={player?.score ?? 0}
@@ -99,8 +108,14 @@ export const GameScreen: React.FC<GameScreenProps> = ({ navigation }) => {
         />
       </View>
 
-      {/* Action panel overlaid at bottom */}
-      <View style={styles.actionOverlay}>
+      {/* Action panel floating card — bottom right */}
+      <View
+        style={[
+          styles.actionOverlay,
+          { bottom: insets.bottom + 10, right: insets.right + 10 },
+        ]}
+        pointerEvents="box-none"
+      >
         <ActionPanel
           isMyTurn={isMyTurn}
           onEndTurn={handleEndTurn}
@@ -113,9 +128,12 @@ export const GameScreen: React.FC<GameScreenProps> = ({ navigation }) => {
         <TouchableOpacity
           style={styles.gameOverOverlay}
           onPress={() => navigation.navigate('GameOver')}
+          activeOpacity={0.85}
         >
-          <Text style={styles.gameOverText}>Game Over!</Text>
-          <Text style={styles.gameOverSubtext}>Tap to see results</Text>
+          <View style={styles.gameOverCard}>
+            <Text style={styles.gameOverText}>Game Over</Text>
+            <Text style={styles.gameOverSubtext}>Tap to see results</Text>
+          </View>
         </TouchableOpacity>
       )}
     </View>
@@ -134,8 +152,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
+    overflow: 'hidden',
   },
   loadingContainer: {
     alignItems: 'center',
@@ -147,36 +164,51 @@ const styles = StyleSheet.create({
   },
   hudOverlay: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
     zIndex: 10,
   },
   actionOverlay: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     zIndex: 10,
   },
   gameOverOverlay: {
     position: 'absolute',
+    top: 0,
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#e94560',
-    padding: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     alignItems: 'center',
+    justifyContent: 'center',
     zIndex: 20,
+  },
+  gameOverCard: {
+    backgroundColor: '#1e1e3a',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e94560',
+    paddingHorizontal: 36,
+    paddingVertical: 24,
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#e94560',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.4,
+        shadowRadius: 16,
+      },
+      default: {
+        elevation: 12,
+      },
+    }),
   },
   gameOverText: {
     color: '#fff',
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
   },
   gameOverSubtext: {
-    color: '#ffd0d0',
+    color: '#ff9090',
     fontSize: 14,
-    marginTop: 4,
+    marginTop: 6,
   },
 });

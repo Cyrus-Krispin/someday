@@ -1,5 +1,6 @@
 import pool from '../config/db.js';
-import { getWorldTiles, getSpawnPositionsForWorld } from './worldService.js';
+import { getWorldTiles, getSpawnPositionsForWorld, updateTileResource } from './worldService.js';
+import { getTerrainAt, getMoveCost, TERRAIN } from '../shared/terrain.js';
 
 export interface TurnState {
   currentPlayer: {
@@ -38,7 +39,6 @@ export const getTurnState = async (worldId: string): Promise<TurnState> => {
 
   const players = result.rows;
 
-  // Get current player index (simplified: first player who hasn't acted this round)
   const worldResult = await pool.query(
     'SELECT game_day FROM worlds WHERE id = $1',
     [worldId]
@@ -46,7 +46,6 @@ export const getTurnState = async (worldId: string): Promise<TurnState> => {
 
   const gameDay = worldResult.rows[0]?.game_day || 1;
 
-  // Count turns this game day to determine whose turn it is
   const turnsResult = await pool.query(
     `SELECT COUNT(DISTINCT player_id) as turns_this_day
      FROM turns
@@ -76,7 +75,7 @@ export const getTurnState = async (worldId: string): Promise<TurnState> => {
       score: p.score,
     })),
     gameDay,
-    isPlayerTurn: null, // Will be set by controller based on requesting player
+    isPlayerTurn: null,
   };
 };
 
@@ -89,7 +88,6 @@ export const processTurn = async (worldId: string, playerId: string, actions: an
   try {
     await client.query('BEGIN');
 
-    // Get player state
     const playerResult = await client.query(
       'SELECT * FROM players WHERE id = $1 AND world_id = $2',
       [playerId, worldId]
@@ -101,7 +99,6 @@ export const processTurn = async (worldId: string, playerId: string, actions: an
 
     const player = playerResult.rows[0];
 
-    // Validate it's this player's turn (simplified check)
     const turnState = await getTurnState(worldId);
     if (turnState.currentPlayer.id !== playerId) {
       throw new Error('Not your turn');
@@ -112,16 +109,22 @@ export const processTurn = async (worldId: string, playerId: string, actions: an
     let tokens = player.tokens;
     let score = player.score;
 
-    // Process each action
+    // Get world meta for terrain computation
+    const worldMeta = await client.query(
+      'SELECT seed, world_size FROM worlds WHERE id = $1',
+      [worldId]
+    );
+    const { seed, world_size: worldSize } = worldMeta.rows[0];
+
     for (const action of actions) {
       switch (action.type) {
         case 'move':
-          const moveResult = await processMove(client, worldId, player, action, movementRemaining);
+          const moveResult = await processMove(client, worldId, player, action, movementRemaining, seed, worldSize);
           movementRemaining = moveResult.movementRemaining;
           break;
 
         case 'gather':
-          await processGather(client, worldId, playerId, player);
+          await processGather(client, worldId, playerId, player, seed, worldSize);
           break;
 
         case 'work':
@@ -130,17 +133,15 @@ export const processTurn = async (worldId: string, playerId: string, actions: an
       }
     }
 
-    // Record the turn
     await client.query(
       `INSERT INTO turns (world_id, player_id, actions_json, auto_skipped)
        VALUES ($1, $2, $3, FALSE)`,
       [worldId, playerId, JSON.stringify(actions)]
     );
 
-    // Reset player state for next turn
     await client.query(
       `UPDATE players
-       SET movement_remaining = 6, actions_remaining = 2, last_turn_at = NOW()
+       SET movement_remaining = 100, actions_remaining = 2, last_turn_at = NOW()
        WHERE id = $1`,
       [playerId]
     );
@@ -157,35 +158,28 @@ export const processTurn = async (worldId: string, playerId: string, actions: an
 };
 
 /**
- * Process movement action
+ * Process movement action — uses on-the-fly terrain computation
  */
-const processMove = async (client: any, worldId: string, player: any, action: any, movementRemaining: number) => {
+const processMove = async (client: any, worldId: string, player: any, action: any, movementRemaining: number, seed: string, worldSize: number) => {
   const { targetX, targetY } = action;
 
-  // Get tile at target
-  const tileResult = await client.query(
-    'SELECT * FROM tiles WHERE world_id = $1 AND x = $2 AND y = $3',
-    [worldId, targetX, targetY]
-  );
-
-  if (tileResult.rows.length === 0) {
+  // Validate bounds
+  if (targetX < 0 || targetX >= worldSize || targetY < 0 || targetY >= worldSize) {
     throw new Error('Invalid tile position');
   }
 
-  const tile = tileResult.rows[0];
+  // Compute terrain on-the-fly
+  const terrain = getTerrainAt(targetX, targetY, seed);
 
-  // Check if water (impassable)
-  if (tile.terrain_type === 'water') {
+  if (terrain.type === 'water') {
     throw new Error('Cannot move to water tile');
   }
 
-  // Calculate movement cost
-  const moveCost = getMoveCost(tile.terrain_type);
-  if (moveCost > movementRemaining) {
+  const moveCost = getMoveCost(terrain.type);
+  if (moveCost === null || moveCost > movementRemaining) {
     throw new Error('Not enough movement points');
   }
 
-  // Update player position
   await client.query(
     'UPDATE players SET x = $1, y = $2 WHERE id = $3',
     [targetX, targetY, player.id]
@@ -195,39 +189,55 @@ const processMove = async (client: any, worldId: string, player: any, action: an
 };
 
 /**
- * Process gather action
+ * Process gather action — stores result in tile_state
  */
-const processGather = async (client: any, worldId: string, playerId: string, player: any) => {
-  // Get current tile
-  const tileResult = await client.query(
-    'SELECT * FROM tiles WHERE world_id = $1 AND x = $2 AND y = $3',
-    [worldId, player.x, player.y]
-  );
-
-  const tile = tileResult.rows[0];
-  if (!tile || !tile.resource_type || tile.resource_quantity <= 0) {
+const processGather = async (client: any, worldId: string, playerId: string, player: any, seed: string, worldSize: number) => {
+  // Compute terrain on-the-fly
+  const terrain = getTerrainAt(player.x, player.y, seed);
+  if (!terrain.resource) {
     throw new Error('No resources to gather here');
   }
 
-  // Get resource value
-  const resourceValue = getResourceValue(tile.resource_type);
+  // Check current tile state
+  const tileStateResult = await client.query(
+    'SELECT * FROM tile_state WHERE world_id = $1 AND x = $2 AND y = $3',
+    [worldId, player.x, player.y]
+  );
 
-  // Add to player's resources
+  const existing = tileStateResult.rows[0];
+  const currentQuantity = existing?.resource_quantity ?? getResourceValue(terrain.resource);
+
+  if (existing && currentQuantity <= 0) {
+    throw new Error('No resources to gather here');
+  }
+
+  const newQuantity = Math.max(0, currentQuantity - 1);
+
+  const worldDayResult = await client.query(
+    'SELECT game_day FROM worlds WHERE id = $1',
+    [worldId]
+  );
+  const gameDay = worldDayResult.rows[0].game_day;
+
+  // Update tile_state (insert if not exists)
+  await client.query(
+    `INSERT INTO tile_state (world_id, x, y, resource_type, resource_quantity, last_harvested_day)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (world_id, x, y)
+     DO UPDATE SET resource_quantity = $5, last_harvested_day = $6`,
+    [worldId, player.x, player.y, terrain.resource, newQuantity, gameDay]
+  );
+
   await client.query(
     `INSERT INTO resources (player_id, type, quantity)
      VALUES ($1, $2, $3)
      ON CONFLICT (player_id, type)
      DO UPDATE SET quantity = resources.quantity + $3`,
-    [playerId, tile.resource_type, 1]
+    [playerId, terrain.resource, 1]
   );
 
-  // Reduce tile resource quantity
-  await client.query(
-    'UPDATE tiles SET resource_quantity = resource_quantity - 1, last_harvested_day = (SELECT game_day FROM worlds WHERE id = $1) WHERE id = $2',
-    [worldId, tile.id]
-  );
+  const resourceValue = getResourceValue(terrain.resource);
 
-  // Update player score
   await client.query(
     'UPDATE players SET score = score + $1 WHERE id = $2',
     [resourceValue, playerId]
@@ -242,21 +252,18 @@ const processGather = async (client: any, worldId: string, playerId: string, pla
 const processWork = async (client: any, worldId: string, playerId: string, player: any, action: any) => {
   const { structureType } = action;
 
-  // Get current tile
-  const tileResult = await client.query(
-    'SELECT * FROM tiles WHERE world_id = $1 AND x = $2 AND y = $3',
+  const tileStateResult = await client.query(
+    'SELECT * FROM tile_state WHERE world_id = $1 AND x = $2 AND y = $3',
     [worldId, player.x, player.y]
   );
 
-  const tile = tileResult.rows[0];
+  const tile = tileStateResult.rows[0];
   if (!tile || tile.structure_type !== structureType) {
     throw new Error(`Not at a ${structureType}`);
   }
 
-  // Process based on structure type
   switch (structureType) {
     case 'mine':
-      // Earn ore + small gem chance
       await client.query(
         `INSERT INTO resources (player_id, type, quantity)
          VALUES ($1, 'ore', 2)
@@ -264,7 +271,6 @@ const processWork = async (client: any, worldId: string, playerId: string, playe
          DO UPDATE SET quantity = resources.quantity + 2`,
         [playerId]
       );
-      // Small gem chance (10%)
       if (Math.random() < 0.1) {
         await client.query(
           `INSERT INTO resources (player_id, type, quantity)
@@ -295,7 +301,6 @@ const processWork = async (client: any, worldId: string, playerId: string, playe
       break;
 
     case 'market':
-      // Market work is just buying/selling - handled separately
       throw new Error('Use trade action for Market');
   }
 
@@ -305,37 +310,22 @@ const processWork = async (client: any, worldId: string, playerId: string, playe
 /**
  * Get movement cost for terrain type
  */
-const getMoveCost = (terrainType: string): number => {
-  const costs: Record<string, number | null> = {
-    'grassland': 1,
-    'forest': 2,
-    'mountain': 3,
-    'desert': 2,
-    'water': null, // Impassable
-  };
-  return costs[terrainType] || 1;
-};
-
-/**
- * Get resource value in tokens
- */
 const getResourceValue = (resourceType: string): number => {
   const values: Record<string, number> = {
-    'crops': 1,
+    'crops': 3,
     'fish': 2,
-    'lumber': 2,
-    'ore': 3,
-    'gems': 10,
-    'rare_gems': 10,
+    'lumber': 5,
+    'ore': 4,
+    'gems': 1,
+    'rare_gems': 1,
   };
-  return values[resourceType] || 0;
+  return values[resourceType] || 1;
 };
 
 /**
  * End turn and advance to next player
  */
 export const endTurn = async (worldId: string, playerId: string): Promise<{ success: boolean; message: string }> => {
-  // Check if all players have acted this game day
   const playersResult = await pool.query(
     'SELECT COUNT(*) as total FROM players WHERE world_id = $1',
     [worldId]
@@ -351,15 +341,11 @@ export const endTurn = async (worldId: string, playerId: string): Promise<{ succ
   const totalPlayers = parseInt(playersResult.rows[0].total);
   const actedPlayers = parseInt(turnsResult.rows[0].acted);
 
-  // If all players acted, advance game day
   if (actedPlayers >= totalPlayers) {
     await pool.query(
       'UPDATE worlds SET game_day = game_day + 1 WHERE id = $1',
       [worldId]
     );
-
-    // TODO: Check for game end (day 30)
-    // TODO: Emit turn_start to next player via Socket.io
   }
 
   return { success: true, message: 'Turn ended successfully' };

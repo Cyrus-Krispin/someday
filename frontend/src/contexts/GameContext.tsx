@@ -2,7 +2,7 @@ import React, { createContext, useContext, useReducer, useCallback, useMemo } fr
 import { api } from '../api/client';
 import { listenForTurnStart } from '../services/socket';
 import type { TileData, TurnState, QueuedAction, WorldState } from '../types';
-import { MAX_MOVEMENT, MAX_ACTIONS, WORLD_SIZE, getMoveCost } from '../services/gameUtils';
+import { MAX_MOVEMENT, MAX_ACTIONS, WORLD_SIZE, getMoveCost, getTerrainAt } from '../services/gameUtils';
 
 interface GameState {
   world: {
@@ -10,6 +10,8 @@ interface GameState {
     joinCode: string;
     gameDay: number;
     status: string;
+    seed: string;
+    worldSize: number;
   } | null;
   tiles: TileData[];
   viewport: { xMin: number; xMax: number; yMin: number; yMax: number } | null;
@@ -57,9 +59,12 @@ export const gameReducer = (state: GameState, action: GameAction): GameState => 
       return { ...state, error: action.error, loading: false };
     case 'QUEUE_ACTION': {
       const cost = action.action.type === 'move'
-        ? (getMoveCost(action.action.targetX !== undefined && action.action.targetY !== undefined
-            ? state.tiles.find(t => t.x === action.action.targetX && t.y === action.action.targetY)?.terrain_type || 'grassland'
-            : 'grassland') ?? 999)
+        ? (getMoveCost(
+            action.action.targetX !== undefined && action.action.targetY !== undefined
+              ? (state.tiles.find(t => t.x === action.action.targetX && t.y === action.action.targetY)?.terrain_type
+                ?? (state.world?.seed ? getTerrainAt(action.action.targetX, action.action.targetY, state.world.seed) : 'grassland'))
+              : 'grassland'
+          ) ?? 999)
         : action.action.type === 'gather' || action.action.type === 'work' ? 0 : 0;
 
       return {
@@ -83,6 +88,7 @@ export const gameReducer = (state: GameState, action: GameAction): GameState => 
 interface GameContextValue extends GameState {
   createWorld: () => Promise<void>;
   joinWorld: (joinCode: string) => Promise<void>;
+  rejoinWorld: () => Promise<void>;
   loadWorldState: () => Promise<void>;
   loadTurnState: () => Promise<void>;
   queueAction: (action: QueuedAction) => boolean;
@@ -101,6 +107,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const movementRemaining = MAX_MOVEMENT - state.movementUsed;
   const actionsRemaining = MAX_ACTIONS - state.actionsUsed;
+
+  const worldSize = state.world?.worldSize ?? WORLD_SIZE;
 
   const baseX = state.turnState?.currentPlayer?.x ?? 0;
   const baseY = state.turnState?.currentPlayer?.y ?? 0;
@@ -121,18 +129,20 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const targetX = simulatedPosition.x + dx;
     const targetY = simulatedPosition.y + dy;
 
-    if (targetX < 0 || targetX >= WORLD_SIZE || targetY < 0 || targetY >= WORLD_SIZE) {
+    if (targetX < 0 || targetX >= worldSize || targetY < 0 || targetY >= worldSize) {
       return false;
     }
 
     const tile = state.tiles.find(t => t.x === targetX && t.y === targetY);
-    const cost = getMoveCost(tile?.terrain_type ?? 'grassland');
+    const terrainType = tile?.terrain_type
+      ?? (state.world?.seed ? getTerrainAt(targetX, targetY, state.world.seed) : 'grassland');
+    const cost = getMoveCost(terrainType);
     if (cost === null) return false;
     if (movementRemaining < cost) return false;
 
     dispatch({ type: 'QUEUE_ACTION', action: { type: 'move', targetX, targetY } });
     return true;
-  }, [simulatedPosition, state.tiles, movementRemaining]);
+  }, [simulatedPosition, state.tiles, state.world?.seed, movementRemaining, worldSize]);
 
   const createWorld = useCallback(async () => {
     dispatch({ type: 'SET_LOADING', loading: true });
@@ -140,7 +150,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const data = await api.createWorld();
       dispatch({
         type: 'SET_WORLD',
-        world: { id: data.world.id, joinCode: data.world.joinCode, gameDay: data.world.gameDay, status: data.world.status },
+        world: {
+          id: data.world.id,
+          joinCode: data.world.joinCode,
+          gameDay: data.world.gameDay,
+          status: data.world.status,
+          seed: (data.world as any).seed || '',
+          worldSize: (data.world as any).worldSize || WORLD_SIZE,
+        },
         tiles: [],
         viewport: null,
       });
@@ -158,7 +175,39 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const data = await api.joinWorld(joinCode);
       dispatch({
         type: 'SET_WORLD',
-        world: { id: data.world.id, joinCode: data.world.joinCode, gameDay: data.world.gameDay, status: 'ACTIVE' },
+        world: {
+          id: data.world.id,
+          joinCode: data.world.joinCode,
+          gameDay: data.world.gameDay,
+          status: 'ACTIVE',
+          seed: (data as any).seed || '',
+          worldSize: (data.world as any).worldSize || WORLD_SIZE,
+        },
+        tiles: [],
+        viewport: null,
+      });
+    } catch (err: any) {
+      dispatch({ type: 'SET_ERROR', error: err.message });
+      throw err;
+    } finally {
+      dispatch({ type: 'SET_LOADING', loading: false });
+    }
+  }, []);
+
+  const rejoinWorld = useCallback(async () => {
+    dispatch({ type: 'SET_LOADING', loading: true });
+    try {
+      const data = await api.rejoinWorld();
+      dispatch({
+        type: 'SET_WORLD',
+        world: {
+          id: data.world.id,
+          joinCode: data.world.joinCode,
+          gameDay: data.world.gameDay,
+          status: data.world.status,
+          seed: (data as any).seed || '',
+          worldSize: (data.world as any).worldSize || WORLD_SIZE,
+        },
         tiles: [],
         viewport: null,
       });
@@ -180,6 +229,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           gameDay: data.world.game_day,
           status: data.world.status,
           joinCode: data.world.join_code,
+          seed: data.world.seed,
+          worldSize: data.world.worldSize,
         },
         tiles: data.tiles,
         viewport: data.viewport,
@@ -202,7 +253,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (action.type === 'move') {
       const terrainType = state.tiles.find(
         t => t.x === action.targetX && t.y === action.targetY
-      )?.terrain_type || 'grassland';
+      )?.terrain_type
+        ?? (state.world?.seed && action.targetX !== undefined && action.targetY !== undefined
+            ? getTerrainAt(action.targetX, action.targetY, state.world.seed)
+            : 'grassland');
       const cost = getMoveCost(terrainType);
       if (cost === null) return false;
       if (movementRemaining < cost) return false;
@@ -212,7 +266,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     dispatch({ type: 'QUEUE_ACTION', action });
     return true;
-  }, [state.tiles, movementRemaining, actionsRemaining]);
+  }, [state.tiles, state.world?.seed, movementRemaining, actionsRemaining]);
 
   const clearActions = useCallback(() => {
     dispatch({ type: 'CLEAR_ACTIONS' });
@@ -240,6 +294,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ...state,
         createWorld,
         joinWorld,
+        rejoinWorld,
         loadWorldState,
         loadTurnState,
         queueAction,

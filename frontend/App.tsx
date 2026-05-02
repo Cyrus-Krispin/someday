@@ -32,13 +32,22 @@ const RootNavigator: React.FC = () => {
     );
   }
 
+  if (!player) {
+    return (
+      <NavigationContainer>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="Auth" component={AuthScreen} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    );
+  }
+
   return (
     <NavigationContainer>
       <Stack.Navigator
-        initialRouteName={player ? 'Lobby' : 'Auth'}
+        initialRouteName="Lobby"
         screenOptions={{ headerShown: false }}
       >
-        <Stack.Screen name="Auth" component={AuthScreen} />
         <Stack.Screen name="Lobby" component={LobbyScreen} />
         <Stack.Screen name="Game" component={GameScreen} />
         <Stack.Screen name="TownHall" component={TownHallScreen} />

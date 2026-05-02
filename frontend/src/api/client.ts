@@ -1,4 +1,4 @@
-import type { AuthResponse, PlayerProfile, WorldState, TurnState } from '../types';
+import type { AuthResponse, MyWorld, PlayerProfile, WorldState, TurnState } from '../types';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -70,6 +70,23 @@ export const api = {
       method: 'POST',
       headers: headers(),
       body: JSON.stringify({ joinCode }),
+    });
+    return handleResponse(res);
+  },
+
+  rejoinWorld: async (): Promise<{
+    world: { id: string; joinCode: string; gameDay: number; status: string };
+  }> => {
+    const res = await fetch(`${BASE_URL}/world/rejoin`, {
+      method: 'POST',
+      headers: headers(),
+    });
+    return handleResponse(res);
+  },
+
+  getMyWorld: async (): Promise<{ world: MyWorld }> => {
+    const res = await fetch(`${BASE_URL}/world/myworld`, {
+      headers: headers(),
     });
     return handleResponse(res);
   },

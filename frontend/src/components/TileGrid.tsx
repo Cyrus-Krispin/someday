@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions } from 'react-native';
 import type { TileData, TurnState } from '../types';
-import { TERRAIN, STRUCTURES, getMoveCost, WORLD_SIZE, VIEWPORT_RADIUS } from '../services/gameUtils';
+import { TERRAIN, STRUCTURES, getMoveCost, VIEWPORT_RADIUS, getTerrainAt } from '../services/gameUtils';
 import { useGame } from '../contexts/GameContext';
 
 interface TileGridProps {
@@ -19,21 +19,55 @@ export const TileGrid: React.FC<TileGridProps> = ({
   playerY,
   turnState,
 }) => {
-  const { movementRemaining, actionsRemaining, queueAction, simulatedPosition } = useGame();
+  const { movementRemaining, queueAction, simulatedPosition, world } = useGame();
   const [selectedTile, setSelectedTile] = useState<{ x: number; y: number } | null>(null);
 
   const { width, height } = useWindowDimensions();
-  const HUD_HEIGHT = 130;
-  const PANEL_HEIGHT = 130;
-  const available = Math.min(width, height - HUD_HEIGHT - PANEL_HEIGHT);
   const gridSize = VIEWPORT_RADIUS * 2 + 1; // 15
-  const TILE_SIZE = Math.max(20, Math.floor((available - 4) / gridSize));
-  const EMOJI_SIZE = Math.max(10, TILE_SIZE - 16);
+  const worldSize = world?.worldSize ?? 30;
 
-  const tileMap = new Map<string, TileData>();
-  for (const tile of tiles) {
-    tileMap.set(`${tile.x},${tile.y}`, tile);
-  }
+  // Tiles fill the full screen — non-square is fine for terrain grids
+  const TILE_W = Math.ceil(width / gridSize);
+  const TILE_H = Math.ceil(height / gridSize);
+  const EMOJI_SIZE = Math.max(10, Math.min(TILE_W, TILE_H) - 10);
+
+  const seed = world?.seed ?? '';
+
+  const tileMap = useMemo(() => {
+    const map = new Map<string, TileData>();
+    for (const tile of tiles) {
+      map.set(`${tile.x},${tile.y}`, tile);
+    }
+    // Fill missing viewport tiles from seed for instant rendering
+    if (seed) {
+      const vpMinX = simulatedPosition.x - VIEWPORT_RADIUS;
+      const vpMinY = simulatedPosition.y - VIEWPORT_RADIUS;
+      for (let gy = 0; gy < gridSize; gy++) {
+        for (let gx = 0; gx < gridSize; gx++) {
+          const wx = vpMinX + gx;
+          const wy = vpMinY + gy;
+          if (wx < 0 || wx >= worldSize || wy < 0 || wy >= worldSize) continue;
+          const key = `${wx},${wy}`;
+          if (!map.has(key)) {
+            const terrainType = getTerrainAt(wx, wy, seed);
+            map.set(key, {
+              id: `gen_${wx}_${wy}`,
+              world_id: '',
+              x: wx,
+              y: wy,
+              terrain_type: terrainType,
+              resource_type: '',
+              resource_quantity: 0,
+              last_harvested_day: null,
+              owner_id: null,
+              structure_type: null,
+            });
+          }
+        }
+      }
+    }
+    return map;
+  }, [tiles, seed, simulatedPosition, gridSize, worldSize]);
 
   const viewportMinX = simulatedPosition.x - VIEWPORT_RADIUS;
   const viewportMinY = simulatedPosition.y - VIEWPORT_RADIUS;
@@ -60,25 +94,17 @@ export const TileGrid: React.FC<TileGridProps> = ({
   const renderTile = (gridX: number, gridY: number) => {
     const worldX = viewportMinX + gridX;
     const worldY = viewportMinY + gridY;
-    const outOfBounds = worldX < 0 || worldX >= WORLD_SIZE || worldY < 0 || worldY >= WORLD_SIZE;
+    const outOfBounds = worldX < 0 || worldX >= worldSize || worldY < 0 || worldY >= worldSize;
+
+    const tileStyle = { width: TILE_W, height: TILE_H };
 
     if (outOfBounds) {
-      return (
-        <View
-          key={`${gridX},${gridY}`}
-          style={[styles.tileBase, { width: TILE_SIZE, height: TILE_SIZE, backgroundColor: '#080810' }]}
-        />
-      );
+      return <View key={`${gridX},${gridY}`} style={[styles.tileBase, tileStyle, styles.tileOob]} />;
     }
 
     const tile = tileMap.get(`${worldX},${worldY}`);
     if (!tile) {
-      return (
-        <View
-          key={`${gridX},${gridY}`}
-          style={[styles.tileBase, { width: TILE_SIZE, height: TILE_SIZE, backgroundColor: '#111' }]}
-        />
-      );
+      return <View key={`${gridX},${gridY}`} style={[styles.tileBase, tileStyle, styles.tileUnknown]} />;
     }
 
     const terrain = TERRAIN[tile.terrain_type];
@@ -99,7 +125,8 @@ export const TileGrid: React.FC<TileGridProps> = ({
         key={`${gridX},${gridY}`}
         style={[
           styles.tileBase,
-          { width: TILE_SIZE, height: TILE_SIZE, backgroundColor: terrain?.bgColor || '#333' },
+          tileStyle,
+          { backgroundColor: terrain?.bgColor || '#333' },
           isPlayerHere && styles.tilePlayerHere,
           isSelected && styles.tileSelected,
           canMoveHere && styles.tileMovable,
@@ -108,7 +135,7 @@ export const TileGrid: React.FC<TileGridProps> = ({
         activeOpacity={0.7}
         disabled={!canMoveHere && !isAdjacent}
       >
-        <Text style={[styles.tileEmoji, { fontSize: EMOJI_SIZE }]}>
+        <Text style={{ fontSize: EMOJI_SIZE }}>
           {isPlayerHere
             ? '📍'
             : tile.structure_type
@@ -130,40 +157,38 @@ export const TileGrid: React.FC<TileGridProps> = ({
 
   return (
     <View style={styles.container}>
-      <View style={styles.grid}>
-        {Array.from({ length: gridSize }, (_, y) => (
-          <View key={y} style={styles.row}>
-            {Array.from({ length: gridSize }, (_, x) => renderTile(x, y))}
-          </View>
-        ))}
-      </View>
+      {Array.from({ length: gridSize }, (_, y) => (
+        <View key={y} style={styles.row}>
+          {Array.from({ length: gridSize }, (_, x) => renderTile(x, y))}
+        </View>
+      ))}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  grid: {
-    backgroundColor: '#050510',
-    padding: 2,
-    borderRadius: 6,
+    flex: 1,
+    alignSelf: 'stretch',
+    overflow: 'hidden',
   },
   row: {
     flexDirection: 'row',
   },
   tileBase: {
-    margin: 1,
-    borderRadius: 3,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
     overflow: 'hidden',
   },
+  tileOob: {
+    backgroundColor: '#060610',
+  },
+  tileUnknown: {
+    backgroundColor: '#0d0d20',
+  },
   tilePlayerHere: {
-    borderWidth: 2,
+    borderWidth: 3,
     borderColor: '#e94560',
   },
   tileSelected: {
@@ -171,33 +196,30 @@ const styles = StyleSheet.create({
     borderColor: '#facc15',
   },
   tileMovable: {
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#4ade80',
-  },
-  tileEmoji: {
-    // fontSize set inline
   },
   resourceCount: {
     position: 'absolute',
-    bottom: 1,
-    right: 2,
-    fontSize: 8,
+    bottom: 2,
+    right: 3,
+    fontSize: 9,
     color: '#fff',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 4,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 3,
     paddingHorizontal: 2,
   },
   playerIndicator: {
     position: 'absolute',
-    top: 1,
-    right: 2,
-    fontSize: 8,
+    top: 2,
+    right: 3,
+    fontSize: 9,
   },
   moveCost: {
     position: 'absolute',
-    top: 1,
-    left: 2,
-    fontSize: 8,
+    top: 2,
+    left: 3,
+    fontSize: 9,
     fontWeight: 'bold',
   },
 });

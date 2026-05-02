@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 
 interface PlayerHUDProps {
   tokens: number;
@@ -17,29 +17,55 @@ export const PlayerHUD: React.FC<PlayerHUDProps> = ({
   onOpenTownHall,
 }) => {
   return (
-    <View style={styles.container}>
-      <View style={styles.row}>
-        <View style={styles.statBox}>
-          <Text style={styles.statLabel}>Tokens</Text>
-          <Text style={styles.statValue}>{tokens}</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statLabel}>Score</Text>
-          <Text style={styles.statValue}>{score}</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statLabel}>Day</Text>
-          <Text style={styles.statValue}>{gameDay}/30</Text>
-        </View>
-      </View>
-      <View style={styles.row}>
-        <View style={[styles.turnIndicator, isMyTurn ? styles.yourTurn : styles.notYourTurn]}>
-          <Text style={styles.turnText}>
-            {isMyTurn ? '🟢 YOUR TURN' : '⏳ Waiting...'}
+    <View style={styles.card}>
+      <View style={styles.statsRow}>
+        <View style={styles.stat}>
+          <Text style={styles.statValue}>
+            <Text style={styles.statIcon}>💰 </Text>
+            {tokens}
           </Text>
         </View>
-        <TouchableOpacity style={styles.townHallButton} onPress={onOpenTownHall}>
-          <Text style={styles.townHallText}>🏛️ Hall</Text>
+        <View style={styles.divider} />
+        <View style={styles.stat}>
+          <Text style={styles.statValue}>
+            <Text style={styles.statIcon}>⭐ </Text>
+            {score}
+          </Text>
+        </View>
+        <View style={styles.divider} />
+        <View style={styles.stat}>
+          <Text style={styles.statValue}>
+            <Text style={styles.statIcon}>📅 </Text>
+            {gameDay}
+            <Text style={styles.statSub}>/30</Text>
+          </Text>
+        </View>
+      </View>
+      <View style={styles.bottomRow}>
+        <View
+          style={[
+            styles.turnPill,
+            isMyTurn ? styles.turnActive : styles.turnWaiting,
+          ]}
+        >
+          <View
+            style={[
+              styles.turnDot,
+              isMyTurn ? styles.dotActive : styles.dotWaiting,
+            ]}
+          />
+          <Text
+            style={[styles.turnText, isMyTurn && styles.turnTextActive]}
+          >
+            {isMyTurn ? 'Your Turn' : 'Waiting'}
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={styles.hallBtn}
+          onPress={onOpenTownHall}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.hallBtnText}>🏛️</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -47,60 +73,106 @@ export const PlayerHUD: React.FC<PlayerHUDProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: 'rgba(17, 24, 39, 0.92)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    paddingTop: 50,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(42, 42, 78, 0.6)',
+  card: {
+    backgroundColor: 'rgba(10, 14, 30, 0.84)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.07)',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.35,
+        shadowRadius: 14,
+      },
+      default: {
+        elevation: 10,
+      },
+    }),
   },
-  row: {
+  statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    justifyContent: 'center',
+    marginBottom: 10,
   },
-  statBox: {
-    alignItems: 'center',
+  stat: {
     flex: 1,
+    alignItems: 'center',
   },
-  statLabel: {
-    color: '#666',
-    fontSize: 10,
-    textTransform: 'uppercase',
+  statIcon: {
+    fontSize: 12,
   },
   statValue: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    color: '#e8e8f0',
+    fontSize: 14,
+    fontWeight: '700',
   },
-  turnIndicator: {
-    flex: 1,
-    padding: 8,
-    borderRadius: 6,
+  statSub: {
+    color: '#6b6b80',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  divider: {
+    width: 1,
+    height: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+  },
+  bottomRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 8,
+    justifyContent: 'space-between',
   },
-  yourTurn: {
-    backgroundColor: '#1a472a',
+  turnPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    gap: 5,
   },
-  notYourTurn: {
-    backgroundColor: '#3a3a1a',
+  turnActive: {
+    backgroundColor: 'rgba(74, 222, 128, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(74, 222, 128, 0.25)',
+  },
+  turnWaiting: {
+    backgroundColor: 'rgba(250, 204, 21, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(250, 204, 21, 0.15)',
+  },
+  turnDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  dotActive: {
+    backgroundColor: '#4ade80',
+  },
+  dotWaiting: {
+    backgroundColor: '#facc15',
   },
   turnText: {
-    color: '#fff',
-    fontSize: 14,
+    color: '#a0a0b0',
+    fontSize: 11,
     fontWeight: '600',
   },
-  townHallButton: {
-    backgroundColor: '#0f3460',
-    padding: 8,
-    borderRadius: 6,
-    paddingHorizontal: 16,
+  turnTextActive: {
+    color: '#bbf7d0',
   },
-  townHallText: {
-    color: '#a0a0d0',
-    fontSize: 14,
+  hallBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  hallBtnText: {
+    fontSize: 16,
   },
 });
