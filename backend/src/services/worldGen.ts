@@ -161,26 +161,29 @@ const placeLocations = (tiles: Tile[], seed: string, size: number): void => {
 };
 
 /**
- * Generate evenly distributed spawn positions for players
+ * Generate evenly distributed spawn positions for players around world center
  */
 export const getSpawnPositions = (playerCount: number, seed: string): { x: number; y: number }[] => {
   const size = 30;
+  const center = size / 2; // 15
+  const radius = size / 5; // 6 — ring around center, away from edges
   const spawnNoise2D = createNoise2D(hashSeed(seed + '_spawn'));
   const positions: { x: number; y: number }[] = [];
 
-  // Divide map into quadrants and place players in different areas
   for (let i = 0; i < playerCount; i++) {
-    const nx = (i * size / playerCount + Math.abs(spawnNoise2D(i, 0)) * (size / playerCount / 2)) % size;
-    const ny = Math.abs(spawnNoise2D(0, i)) * size;
+    // Spread evenly by angle, add small noise perturbation so it varies per world
+    const baseAngle = (i / Math.max(playerCount, 1)) * 2 * Math.PI;
+    const angleJitter = spawnNoise2D(i + 1.5, 0.5) * 0.4; // avoids (0,0) noise coords
+    const angle = baseAngle + angleJitter;
 
-    const x = Math.floor(nx);
-    const y = Math.floor(ny);
+    const r = radius * (0.8 + Math.abs(spawnNoise2D(0.5, i + 1.5)) * 0.4);
+    const x = Math.round(center + Math.cos(angle) * r);
+    const y = Math.round(center + Math.sin(angle) * r);
 
-    // Ensure spawn is not on water
-    const safeX = Math.min(x, size - 1);
-    const safeY = Math.min(y, size - 1);
-
-    positions.push({ x: safeX, y: safeY });
+    positions.push({
+      x: Math.max(0, Math.min(size - 1, x)),
+      y: Math.max(0, Math.min(size - 1, y)),
+    });
   }
 
   return positions;
