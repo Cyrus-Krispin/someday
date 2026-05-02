@@ -124,24 +124,18 @@ describe('GameContext.moveInDirection', () => {
   });
 
   it('returns false when movementRemaining is insufficient for terrain cost', async () => {
-    // Use 4 grassland moves (4pts) leaving 2pts, then try mountain (3pts)
-    const tiles = [
-      makeTile(5, 5), makeTile(6, 5), makeTile(7, 5), makeTile(8, 5),
-      makeTile(9, 5),
-      makeTile(10, 5, 'mountain'),
-    ];
+    const tiles = Array.from({ length: 103 }, (_, i) => makeTile(5 + i, 5));
     const result = await setupGameContext(tiles, 5, 5);
 
-    await act(async () => { result.current.moveInDirection(1, 0); }); // 5→6 (1pt)
-    await act(async () => { result.current.moveInDirection(1, 0); }); // 6→7 (1pt)
-    await act(async () => { result.current.moveInDirection(1, 0); }); // 7→8 (1pt)
-    await act(async () => { result.current.moveInDirection(1, 0); }); // 8→9 (1pt) — 2 left
+    for (let i = 0; i < 100; i++) {
+      await act(async () => { result.current.moveInDirection(1, 0); });
+    }
 
     let success: boolean;
-    await act(async () => { success = result.current.moveInDirection(1, 0); }); // 9→10 mountain (3pt) — fail
+    await act(async () => { success = result.current.moveInDirection(1, 0); });
 
     expect(success!).toBe(false);
-    expect(result.current.queuedActions).toHaveLength(4);
+    expect(result.current.queuedActions).toHaveLength(100);
   });
 
   it('returns false when target is out of world bounds (negative)', async () => {

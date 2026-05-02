@@ -1,8 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions } from 'react-native';
 import type { TileData, TurnState } from '../types';
-import { TERRAIN, STRUCTURES, getMoveCost, VIEWPORT_RADIUS, getTerrainAt } from '../services/gameUtils';
+import { TERRAIN, getMoveCost, VIEWPORT_RADIUS, getTerrainAt } from '../services/gameUtils';
 import { useGame } from '../contexts/GameContext';
+import { TerrainTileArt } from './TerrainTileArt';
+import { StructureArt } from './StructureArt';
+import { PlayerMarker } from './PlayerMarker';
 
 interface TileGridProps {
   tiles: TileData[];
@@ -23,13 +26,12 @@ export const TileGrid: React.FC<TileGridProps> = ({
   const [selectedTile, setSelectedTile] = useState<{ x: number; y: number } | null>(null);
 
   const { width, height } = useWindowDimensions();
-  const gridSize = VIEWPORT_RADIUS * 2 + 1; // 15
+  const gridSize = VIEWPORT_RADIUS * 2 + 1;
   const worldSize = world?.worldSize ?? 30;
 
-  // Tiles fill the full screen — non-square is fine for terrain grids
   const TILE_W = Math.ceil(width / gridSize);
   const TILE_H = Math.ceil(height / gridSize);
-  const EMOJI_SIZE = Math.max(10, Math.min(TILE_W, TILE_H) - 10);
+  const minDim = Math.min(TILE_W, TILE_H);
 
   const seed = world?.seed ?? '';
 
@@ -38,7 +40,6 @@ export const TileGrid: React.FC<TileGridProps> = ({
     for (const tile of tiles) {
       map.set(`${tile.x},${tile.y}`, tile);
     }
-    // Fill missing viewport tiles from seed for instant rendering
     if (seed) {
       const vpMinX = simulatedPosition.x - VIEWPORT_RADIUS;
       const vpMinY = simulatedPosition.y - VIEWPORT_RADIUS;
@@ -135,21 +136,42 @@ export const TileGrid: React.FC<TileGridProps> = ({
         activeOpacity={0.7}
         disabled={!canMoveHere && !isAdjacent}
       >
-        <Text style={{ fontSize: EMOJI_SIZE }}>
-          {isPlayerHere
-            ? '📍'
-            : tile.structure_type
-            ? STRUCTURES[tile.structure_type]?.emoji || '?'
-            : terrain?.emoji || '?'}
-        </Text>
-        {tile.resource_quantity > 0 && tile.resource_type && (
-          <Text style={styles.resourceCount}>{tile.resource_quantity}</Text>
+        <View style={styles.tileArtContainer}>
+          <TerrainTileArt terrainType={tile.terrain_type} width={TILE_W} height={TILE_H} />
+        </View>
+
+        {isPlayerHere && (
+          <View style={styles.centerOverlay}>
+            <PlayerMarker size={Math.round(minDim * 0.65)} />
+          </View>
         )}
-        {otherPlayerHere && <Text style={styles.playerIndicator}>👤</Text>}
+
+        {!isPlayerHere && tile.structure_type && (
+          <View style={styles.centerOverlay}>
+            <View style={styles.structureBg}>
+              <StructureArt type={tile.structure_type} size={Math.round(minDim * 0.5)} />
+            </View>
+          </View>
+        )}
+
+        {tile.resource_quantity > 0 && tile.resource_type && (
+          <View style={styles.resourceBadge}>
+            <Text style={styles.resourceText}>{tile.resource_quantity}</Text>
+          </View>
+        )}
+
+        {otherPlayerHere && !isPlayerHere && (
+          <View style={styles.otherPlayerBadge}>
+            <Text style={styles.otherPlayerText}>
+              {(turnState?.players.findIndex(p => p.id === otherPlayerHere.id) ?? 0) + 1}
+            </Text>
+          </View>
+        )}
+
         {moveCost !== null && isAdjacent && (
-          <Text style={[styles.moveCost, { color: canMoveHere ? '#4ade80' : '#e94560' }]}>
-            {moveCost}
-          </Text>
+          <View style={[styles.moveCostBadge, { backgroundColor: canMoveHere ? 'rgba(74,222,128,0.85)' : 'rgba(233,69,96,0.85)' }]}>
+            <Text style={styles.moveCostText}>{moveCost}</Text>
+          </View>
         )}
       </TouchableOpacity>
     );
@@ -180,6 +202,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     position: 'relative',
     overflow: 'hidden',
+    borderWidth: 0.5,
+    borderColor: 'rgba(0,0,0,0.18)',
   },
   tileOob: {
     backgroundColor: '#060610',
@@ -190,6 +214,7 @@ const styles = StyleSheet.create({
   tilePlayerHere: {
     borderWidth: 3,
     borderColor: '#e94560',
+    zIndex: 2,
   },
   tileSelected: {
     borderWidth: 2,
@@ -199,27 +224,62 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#4ade80',
   },
-  resourceCount: {
+  tileArtContainer: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+  },
+  centerOverlay: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  structureBg: {
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    borderRadius: 6,
+    padding: 2,
+  },
+  resourceBadge: {
     position: 'absolute',
     bottom: 2,
-    right: 3,
-    fontSize: 9,
-    color: '#fff',
+    right: 2,
     backgroundColor: 'rgba(0,0,0,0.55)',
-    borderRadius: 3,
-    paddingHorizontal: 2,
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
   },
-  playerIndicator: {
+  resourceText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  otherPlayerBadge: {
     position: 'absolute',
     top: 2,
-    right: 3,
-    fontSize: 9,
+    right: 2,
+    backgroundColor: 'rgba(233,69,96,0.8)',
+    borderRadius: 8,
+    width: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  moveCost: {
+  otherPlayerText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  moveCostBadge: {
     position: 'absolute',
     top: 2,
-    left: 3,
-    fontSize: 9,
-    fontWeight: 'bold',
+    left: 2,
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  moveCostText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '800',
   },
 });
